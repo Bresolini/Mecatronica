@@ -1,0 +1,43 @@
+\begin{tikzpicture}[x=2mm,y=2mm]
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Solo
+\draw[brown, ultra thick] (-7,0) -- (7,0);
+\foreach \x in {-6,-3,...,6}
+\draw[brown, ultra thick] (\x,0) -- (\x+1.414,1.414);
+
+\coordinate (O) at (0,0);
+\node at (O) [below left] {$O$};
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Corda
+\draw[ultra thick,orange] (O) -- ({15*sin(15)},{-15*cos(15)}) coordinate (A);
+\node at ({7.5*cos(285)},{7.5*sin(285)}) [right] {$\ell$};
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Bola
+\draw[fill=red,red] (A) circle (2.5);
+\draw[fill=black] (A) circle(1pt);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Auxiliares
+\draw[dashed] (0,0) -- (0,-10) coordinate (Aux1);
+\draw (0,-5) arc (270:285:5);
+\node at (0.75,-6) {$\theta$};
+\draw[dashed] ({15*cos(240)},{15*sin(240)}) arc (240:330:15);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Forças
+\node at (A) [above] {$P$};
+\draw[-latex, thick] (A) -- ({15*cos(285)+6*cos(15)},{15*sin(285)+6*sin(15)}) node [below] {$\Vec{F}$};
+\draw[-latex, thick] (A) -- ({15*cos(285)+4*cos(195)},{15*sin(285)+4*sin(195)}) node [below] {$\Vec{F}_a$};
+\draw[-latex, thick] (A) -- ($(A)-(0,6)$) node [below] {$mg$};
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Eixos
+\coordinate (B) at (-12,-20);
+\draw[-latex,thick] (B) -- ($(B)+(5,0)$) node [right] {$x$}; % x
+\draw[-latex,thick] (B) -- ($(B)+(0,5)$) node [above] {$y$}; % y
+\draw[-latex,thick,orange] (B) -- ({-12+5*cos(15)}, {-20+5*sin(15)}) node [above] {$x'$};
+\draw[-latex,thick,orange] (B) -- ({-12+5*cos(105)}, {-20+5*sin(105)}) node [left] {$y'$};
+\draw (-9.5,-20) arc (0:15:2.5); 
+
+\end{tikzpicture}
