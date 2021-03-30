@@ -7,7 +7,111 @@ Esta biblioteca reúne várias funções que foram construídas durante os traba
 
 As funções implementadas se mostraram bastante úteis durante os trabalhos.
 
-Última edição: 23/03/2021.
+Lista de funções
+----------------
+# Funções utilitárias
+
+
+stepinfo(t, y, Print=True)
+    Calcula os parâmetros da resposta temporal a um degrau para um sistema estável.
+
+param(ts, OS, a=4, n=2):
+    Cálculo do(s) polo(s) desejados com base nos critérios de desempenho.
+
+zw(Mp, tp):
+    Calcula os parâmetros de ζ e ωn com base no percentual máximo de overshoot e o tempo em que o pico do sinal ocorre. O sistema considerado é um sistema de segunda ordem.
+
+sylv(num,den):
+    Determina a matriz de Sylvester com o numerador e denominador dados.
+
+polos_nondom(p1, n, pond=1):
+    Retorna os polos não dominantes de um sistema de ordem ``n``.
+
+makeSteps(lists, T, dt):
+    Função que criar uma sequência de degraus uniformes a partir de uma lista com as amplitudes, o espaçamento e o tempo de cada degrau.
+
+def getKTL(t, y, A=1, Plot=True):
+    Função usada para determinar os parêmtros K, T e L para a sintonia de controladores PID pelo método Ziegler-Nichols. Os 3 parâmetros são determinados para a resposta a um degrau no sistema.
+
+# Funções de plotagem
+
+
+PlotStep(sys, t, nfig=1):
+    Função para plotar a resposta temporal de um sistema linear estável para uma entrada de degrau. Além disso, são marcados no gráfico o tempo de acomodação, tempo de pico e pico do sinal.
+
+PlotData(t,
+         y,
+         r,
+         u,
+         discrete=False,
+         ylabels=None,
+         ulabels=None,
+         loc='lower right'):
+    Função para plotar os dados de uma simulação marcando tss e OS.
+
+Bode(G, wlim=None,Hz=True, tol=1e-1):
+    Plota o diagrama de Bode de um sistema G e calcula os valores da banda de passagem, ganho em baixa frequência, ganho máximo e freq. de pico.
+
+_genTxt(pol, x, dec):
+    Função auxiliar para a função zpk, Gera o texto do numerador ou denominador com base nos zeros ou polos passados.
+
+zpk(G, dec=4):
+    Printa os zeros, polos e ganho de uma função transferência.
+
+#  Funções de simulação
+
+
+sim_cont(G, t0, Ts, qnt, Ue, x0):
+    Função auxiliar usada para fazer a simulação de um sistema contínuo durante o tempo entre a amostragem do sistema discreto.
+
+simulaCzGs(G,
+           C,
+           n,
+           r=None,
+           x0=0,
+           ulim=None,
+           qnt=20):
+    Simula a implementação do controlador discreto C(z) ligado em série com o processo contínuo G(s) e com realimentação unitária.
+
+update_uk(C, ek, _u, _e):
+    Função auxiliar que implementa a equação a diferença do controlador e retorna o valor do sinal de controle u[k] considerando o controlador em série com o processo e a realimentação unitária.
+
+# Construir PID
+
+
+PID(K, Ti, Td, N=None):
+    Cria um controlador PID com base nos parâmetros K, Ti, Td. É possível utilizar um filtro N no derivativo.
+
+PIDz(K, Ti, Td, Ts):
+    Gera o controlador PID discretizado com base nos parâmetros K, Ti, Td e Ts.
+
+discretePID(C, Ts):
+    Discretiza um controlador PID C(s) com uma taxa de amostragem Ts.
+
+# Projetar PID
+
+
+PID_Pol(G, D, N=None):
+    Projeta um controlador PID utilizando o método polinomial.
+
+PID_LGR(G, p, zPI=-0.5, Print=True, xlim=None):
+    Projeta um controlador PID pelo método LGR.
+
+sintoniaPID(param, met='ZN',C='PID', modo=None):
+    Sintoniza um controlador PID, PI ou P com base nos parâmetros do modelo identificado e no método pedido.
+
+# Funções em desenvolvimento
+
+latexTable(t, y1, y2):
+    Gerar o texto em LaTeX dos critérios de desempenho de duas respostas
+
+find_nearest(array, value):
+    Função usada para achar o índice em que um valor é o mais próximo possível de um array passado.
+
+
+Última edição
+-------------
+30/03/2021.
 """
 import numpy as np
 from numpy.linalg import inv
@@ -15,7 +119,7 @@ import control as ct
 import matplotlib.pyplot as plt
 
 
-# Funções usadas
+# Funções de utilitárias
 def stepinfo(t, y, Print=True):
     """
     Calcula os parâmetros da resposta temporal a um degrau para um sistema estável.
@@ -73,9 +177,9 @@ def stepinfo(t, y, Print=True):
     else:
         tpeak = t[np.argmax(y)]
         peak  = np.max(y)
-    OS    = 100*(peak/yf - 1)
-    if min(y) > y[0]:
-        US = 100*(min(y)/yf - 1)
+    OS = 100*(peak/yf - 1)
+    if min(y) < y[0]:
+        US = -100*min(y)/yf
     else:
         US = 0
     tr = t[next(i for i in range(0, n-1) if abs(y[i]) > abs(0.9*yf))] \
@@ -93,8 +197,7 @@ def stepinfo(t, y, Print=True):
 
 def param(ts, OS, a=4, n=2):
     """
-    Cálculo do(s) polo(s) desejados com base nos critérios de
-    desempenho.
+    Cálculo do(s) polo(s) desejados com base nos critérios de desempenho.
 
     Com base no critério de desempenho passado, são calculados os
     parâmetros e os polos do modelo de primeira ou segunda ordem
@@ -150,9 +253,63 @@ def param(ts, OS, a=4, n=2):
         p = np.array([p1,np.conjugate(p1)])
         return z, w, p
 
+def zw(Mp, tp):
+    """
+    Calcula os parâmetros de ζ e ωn com base no percentual máximo de overshoot e o tempo em que o pico do sinal ocorre. O sistema considerado é um sistema de segunda ordem.
+
+    Parâmetros
+    ----------
+    Mp : float
+        Percentual de overshoot/sobressinal.
+    tp : float
+        Tempo em que ocorre o pico do sinal.
+
+    Retorna
+    -------
+    z : float
+        Coeficiente de amortecimento (ζ).
+    w : float
+        Frequência natural (ωn).
+    p : np.array
+        Polos do sistema.
+    """
+    z = -np.log(Mp)/np.sqrt(pow(np.log(Mp),2)+pow(np.pi, 2))
+    w = np.pi/( tp*np.sqrt(1-pow(z,2)) )
+
+    p1 = -z*w + 1j*w*np.sqrt(1-pow(z,2))
+    p = np.array([p1,np.conjugate(p1)])
+    return z, w, p
+
+def sylv(num,den):
+    """
+    Determina a matriz de Sylvester com o numerador e denominador dados.
+
+    Parâmetros
+    ----------
+    num : array, ndarray, vetor
+        Numerador do processo.
+    den : array, ndarry, vetor
+        Denominador do processo.
+
+    Retorna
+    -------
+    S : ndarray (Matriz)
+        Matriz de Sylvester.
+    """
+    n, m = len(num)-1, len(den)-1
+    N  = max([n,m])
+    S = np.zeros( [ 2*N, 2*N ] )
+    for i in range(0,N):
+        S[i][i:m+1+i] = den[::-1]
+        S[i+N][i:n+1+i] = num[::-1]
+
+    S = S.transpose()
+    return S
+
 def polos_nondom(p1, n, pond=1):
     """
     Retorna os polos não dominantes de um sistema de ordem ``n``.
+
     Os polos não dominantes devem estar localizados uma década abaixo
     do polo dominantes mais rápido.
 
@@ -176,9 +333,91 @@ def polos_nondom(p1, n, pond=1):
     p = 10*np.real(p1) - pond*np.arange(0, n-2)
     return p
 
+def makeSteps(lists, T, dt):
+    """
+    Função que criar uma sequência de degraus uniformes a partir de uma lista com as amplitudes, o espaçamento e o tempo de cada degrau.
+
+    Parâmetros
+    ----------
+    lists : tuple, list, array
+        Lista de amplitudes desejadas em cada degrau.
+    T : int, float
+        Tempo final de cada degrau.
+    dt : int, float
+        Espaçamento de cada valor.
+
+    Retorna
+    -------
+    t : ndarray
+        Vetor com o tempo de simulação.
+    u : ndarray
+        Vetor com a sequencia de degrau.
+    """
+    n, m = len(lists), int(T/dt) # n° de steps, qnt de valores
+    t = np.arange(0, n*T, dt)    # Tempo de simulação
+
+    u = np.zeros_like(t) # Pré-alocação
+    for i in range(n):
+        u[i*m:(i+1)*m] = lists[i] # Seq. stesp
+    u[-1] = lists[n-1] # Atualiza último valor
+
+    return t, u
+
+def getKTL(t, y, A=1, Plot=True):
+    """
+    Função usada para determinar os parêmtros K, T e L para a sintonia de controladores PID pelo método Ziegler-Nichols. Os 3 parâmetros são determinados para a resposta a um degrau no sistema.
+
+    Parâmetros
+    ----------
+    t : np.array
+        Tempo da coleta dos dados. O vetor deve ser equispaçado.
+    y : np.array
+        Resposta do sistema para uma a entrada em degrau de amplitude A.
+    A : float, int
+        Amplitude do degrau aplicado.
+    Plot : bool
+        Se for True, plotará a reta identificada e os pontos de interesse.
+    """
+    dt = t[1]-t[0]
+    K = y[-1]/A - y[0]
+
+    #P = 0.63*K
+    dy = np.diff(y)
+    i  = np.argmax(dy)
+
+    a1 = max(dy)/dt
+    a0 = y[i+1] - a1*t[i+1]
+
+    # O atraso não pode ser negativo
+    t1 = -a0/a1 if -a0/a1 > 0 else 0
+    #B = find_nearest(y, P)
+    t2 = (y[-1] - a0)/a1
+
+    L = t1
+    T = t2-t1
+
+    if Plot:
+        plt.plot(t, a1*t+a0, linewidth=1)
+        plt.plot([t2, t2], [K*A, 0], 'k--', linewidth=1)
+        r = K*A*np.ones_like(y)
+        plt.plot(t, r, 'k--', linewidth=1)
+        plt.plot(t, y)
+
+
+        plt.scatter([t[i+1], t1, t2], [y[i+1], 0, K*A], c='#DC1C13')
+
+        plt.grid(linestyle='--')
+        plt.xlim(t[0], t[-1])
+        plt.ylim(min(y), 1.2*max(y))
+        plt.xlabel('tempo (s)')
+        plt.ylabel('Amplitude')
+
+    return K, T, L
+
+# Funções de plotagem
 def PlotStep(sys, t, nfig=1):
     """
-        Função auxiliar para plotar a resposta temporal de um sistema linear estável para uma entrada de degrau. Além disso, são marcados no gráfico o tempo de acomodação, tempo de pico e pico do sinal.
+    Função auxiliar para plotar a resposta temporal de um sistema linear estável para uma entrada de degrau. Além disso, são marcados no gráfico o tempo de acomodação, tempo de pico e pico do sinal.
 
     Parâmetros
     ----------
@@ -241,7 +480,14 @@ def PlotStep(sys, t, nfig=1):
 
     return y
 
-def PlotData(t, y, r, u, discrete=False):
+def PlotData(t,
+             y,
+             r,
+             u,
+             discrete=False,
+             ylabels=None,
+             ulabels=None,
+             loc='lower right'):
     """
     Função para plotar os dados de uma simulação.
 
@@ -259,59 +505,92 @@ def PlotData(t, y, r, u, discrete=False):
         Sinal de controle enviado a planta.
     discrete : bool
         Se for True, o sistema será plotado com plt.step. Caso contrário, será plotado com plt.plot.
-        Padrão é False.
+        Padrão é False
+    ylabels : list of strigs
+        Textos usados na legenda das respostas. Se None, não haverá textos para as legendas.
+        Padrão é None.
+    ulabels : list of strings
+        Textos usados na legenda dos sinais de controle. Se None, não haverá textos para as legendas.
+        Padrão é None.
+    loc : string
+        Localização das legendas. Veja matplotlib.pyplot.legend() para mais informações.
+        Padrão é 'lower right'.
     """
+    # Transformar u e y em np.array
+    u, y = np.asarray((u, y))
+    n, *m = y.shape # forma inicial de y
+    # Se y for um vetor e não uma matriz, transforma-o numa matriz linha
+    y = y.reshape((1, n)) if m==[] else y
+    u = u.reshape(y.shape) # Faz o mesmo para u
+    n, _ = y.shape # Forma atual de y
+    # Altera ylabels e ulabels para serem iteráveis, acessados por:
+    # ylabels[i]
+    ylabels = n*[None] if ylabels is None else ylabels
+    ulabels = n*[None] if ulabels is None else ulabels
 
-    tss, OS, US, tr, peak, tpeak = stepinfo(t, y)
+    # Pré-aloca os critérios de desempenho
+    tss, OS, US, tr, peak, tpeak = np.zeros((6,n))
+    # Cria a figura
     fig, ax = plt.subplots(2,1,sharex=True)
-    if discrete:
-        ax[0].step(t, r, label = '$r(t)$')
-        ax[0].step(t, y, label = '$y(t)$')
-    else:
-        ax[0].plot(t, r, label = '$r(t)$')
-        ax[0].plot(t, y, label = '$y(t)$')
-
+    # Configuração do plot
     ax[0].grid(linestyle='--')
-    ax[0].set_ylabel('$y$')
-    ax[0].legend(loc='best')
+    ax[0].set_ylabel('$y(t)$')
     ax[0].set_xlim([min(t), max(t)])
-
-    # Tempo de acomodação
-    ax[0].plot([tss, tss],
-             [min(t), y[np.where(t==tss)][0]],
-              '-.',
-              linewidth=1,
-              c='#43464b')
-    ax[0].plot([tss],
-             [y[np.where(t==tss)][0]],
-             '.',
-             markersize=8,
-             c='#43464b')
-    # Pico
-    ax[0].plot([tpeak, tpeak],
-             [min(t), peak],
-              '-.',
-              linewidth=1,
-              c='#43464b')
-    ax[0].plot([min(t), tpeak],
-             [peak, peak],
-              '-.',
-              linewidth=1,
-              c='#43464b')
-    ax[0].plot([tpeak],
-             [peak],
-             '.',
-             markersize=8,
-             c='#43464b')
-
-    if discrete:
-        ax[1].step(t, u, where='pre')
-    else:
-        ax[1].plot(t, u)
 
     ax[1].grid(linestyle='--')
     ax[1].set_xlabel('$t$ (s)')
-    ax[1].set_ylabel('$u$')
+    ax[1].set_ylabel('$u(t)$')
+
+    # Iteração pela quantidade de respostas
+    for i in range(n):
+        # Critérios de desempenho
+        tss[i], OS[i], US[i], tr[i], peak[i], tpeak[i] = stepinfo(t, y[i])
+        # Se for discreto, use step e não plot
+        if discrete:
+            ax[0].step(t, y[i], label = ylabels[i])
+            ax[1].step(t, u[i], label = ulabels[i])
+        else:
+            ax[0].plot(t, y[i], label = ylabels[i])
+            ax[1].plot(t, u[i], label = ulabels[i])
+
+        # Plot os tracejados e pontos dos critérios de desempenho
+        # Tempo de acomodação
+        ax[0].plot([tss[i], tss[i]],
+                 [np.min(y), y[i][np.where(t==tss[i])][0]],
+                  '-.',
+                  linewidth=1,
+                  c='#43464b')
+        ax[0].plot([tss[i]],
+                 [y[i][np.where(t==tss[i])][0]],
+                 '.',
+                 markersize=8,
+                 c='#43464b')
+        # Pico
+        ax[0].plot([tpeak[i], tpeak[i]],
+                 [np.min(y), peak[i]],
+                  '-.',
+                  linewidth=1,
+                  c='#43464b')
+        ax[0].plot([min(t), tpeak[i]],
+                 [peak[i], peak[i]],
+                  '-.',
+                  linewidth=1,
+                  c='#43464b')
+        ax[0].plot([tpeak[i]],
+                 [peak[i]],
+                 '.',
+                 markersize=8,
+                 c='#43464b')
+
+    # Plota a referência
+    if discrete:
+        ax[0].step(t, r, label = '$r(t)$')
+    else:
+        ax[0].plot(t, r, label = '$r(t)$')
+
+    # Insere a legenda
+    ax[0].legend(loc=loc)
+    ax[1].legend(loc=loc)
 
 def Bode(G, wlim=None,Hz=True, tol=1e-1):
     """
@@ -357,11 +636,11 @@ def Bode(G, wlim=None,Hz=True, tol=1e-1):
         w_ = np.logspace(wlim[0], np.log10(1.6*np.pi*G.dt),200)
         wlim = (wlim[0], np.log10(np.ceil(2*G.dt)))
     else:
-        w_ = np.logspace(wlim[0], wlim[1], 200)
+        w_ = np.logspace(wlim[0], wlim[1], 500)
 
     # Obtém os valores do diagrama de Bode e plota o gráfico
     mag, phase, w = ct.bode(G, w_, dB=True, Hz=Hz)
-    # DEtermina o layour como estreito
+    # Determina o layour como estreito
     plt.tight_layout()
 
     #Converte mag para dB
@@ -393,7 +672,6 @@ def Bode(G, wlim=None,Hz=True, tol=1e-1):
     #plt.plot([wB,wB],plt.ylim(),'k--')    # Vertical
 
     return Klw, wB, Kpeak, wpeak
-
 
 def _genTxt(pol, x, dec):
     """
@@ -440,10 +718,9 @@ def _genTxt(pol, x, dec):
 
     return a
 
-
 def zpk(G, dec=4):
     """
-    Função que calcula e plota os zeros, polos e ganho de uma função transferência.
+    Printa os zeros, polos e ganho de uma função transferência.
 
     Parâmetros
     ----------
@@ -507,90 +784,7 @@ def zpk(G, dec=4):
 
     print('Ganho estático: ' + str(k) + '.')
 
-def sylv(num,den):
-    """
-    Determina a matriz de Sylvester com o numerador e denominador
-    dados.
-
-    Parâmetros
-    ----------
-    num : array, ndarray, vetor
-        Numerador do processo.
-    den : array, ndarry, vetor
-        Denominador do processo.
-
-    Retorna
-    -------
-    S : ndarray (Matriz)
-        Matriz de Sylvester.
-    """
-    n, m = len(num)-1, len(den)-1
-    N  = max([n,m])
-    S = np.zeros( [ 2*N, 2*N ] )
-    for i in range(0,N):
-        S[i][i:m+1+i] = den[::-1]
-        S[i+N][i:n+1+i] = num[::-1]
-
-    S = S.transpose()
-    return S
-
-def zw(Mp, tp):
-    """
-    Calcula os parâmetros de ζ e ωn com base no percentual máximo de overshoot e o tempo em que o pico do sinal ocorre. O sistema considerado é um sistema de segunda ordem.
-
-    Parâmetros
-    ----------
-    Mp : float
-        Percentual de overshoot/sobressinal.
-    tp : float
-        Tempo em que ocorre o pico do sinal.
-
-    Retorna
-    -------
-    z : float
-        Coeficiente de amortecimento (ζ).
-    w : float
-        Frequência natural (ωn).
-    p : np.array
-        Polos do sistema.
-    """
-    z = -np.log(Mp)/np.sqrt(pow(np.log(Mp),2)+pow(np.pi, 2))
-    w = np.pi/( tp*np.sqrt(1-pow(z,2)) )
-
-    p1 = -z*w + 1j*w*np.sqrt(1-pow(z,2))
-    p = np.array([p1,np.conjugate(p1)])
-    return z, w, p
-
-def makeSteps(lists, T, dt):
-    """
-    Função que criar uma sequência de degraus uniformes a partir de uma lista com as amplitudes, o espaçamento e o tempo de cada degrau.
-
-    Parâmetros
-    ----------
-    lists : tuple, list, array
-        Lista de amplitudes desejadas em cada degrau.
-    T : int, float
-        Tempo final de cada degrau.
-    dt : int, float
-        Espaçamento de cada valor.
-
-    Retorna
-    -------
-    t : ndarray
-        Vetor com o tempo de simulação.
-    u : ndarray
-        Vetor com a sequencia de degrau.
-    """
-    n, m = len(lists), int(T/dt) # n° de steps, qnt de valores
-    t = np.arange(0, n*T, dt)    # Tempo de simulação
-
-    u = np.zeros_like(t) # Pré-alocação
-    for i in range(n):
-        u[i*m:(i+1)*m] = lists[i] # Seq. stesp
-    u[-1] = lists[n-1] # Atualiza último valor
-
-    return t, u
-
+# Funções de simulação
 def sim_cont(G, t0, Ts, qnt, Ue, x0):
     """
     Função auxiliar usada para fazer a simulação de um sistema contínuo durante o tempo entre a amostragem do sistema discreto.
@@ -626,248 +820,6 @@ def sim_cont(G, t0, Ts, qnt, Ue, x0):
     t = np.linspace(t0, t0+Ts, qnt)
     _, y, x = ct.input_output_response(sys, t, Ue, x0, return_x=True)
     return t, y[-1], x.T[-1]
-
-def pid(K, Ti, Td, N=None):
-    """
-    Cria um controlador PID com base nos parâmetros K, Ti, Td. É possível utilizar um filtro N no derivativo.
-    A dedução foi feita adotando
-    * Sem filtro:
-              /       1         \
-        C = K | 1 + ---- + Td s |
-              \     Ti s        /
-
-    * Com filtro:
-              /       1       Td s    \
-        C = K | 1 + ---- + ---------- |
-              \     Ti s   Td s/N + 1 /
-
-    PID:
-    Sem o filtro:
-              (Ti Td s² + Ti s + 1)
-        C = K ---------------------
-                      Ti s
-
-    Com filtro:
-              (Ti Td (N + 1) s² + (Ti N + Td) s + N)
-        C = K --------------------------------------
-                         Ti s (Td s + N)
-
-    A variável pode ser s ou z.
-
-    Parâmetros
-    ----------
-    K : float
-        Ganho proporcional do controlador.
-    Ti : float ou np.inf
-        Ganho do integrador do controlador.
-    Td : float
-        Ganho do derivativo do controlador.
-    N : inteiro positivo
-        Filtro do derivativo, normalmente entre 10 e 100.
-        Padrão é None.
-    """
-    #assert K != 0 and Ti != 0 and Td != 0, 'Os parâmetros não podem ser todos nulos'
-    assert K != 0, 'O ganho do controlador não pode ser nulo!'
-    assert Ti != 0, 'O ganho do integrador não pode ser nulo'
-    if Td == 0:
-        assert N is None, 'O controlador proposto não tem derivativo e não precisa do filtro N nele.'
-    if N is not None:
-        assert N > 0, 'Valor inválido para N!'
-
-    if Ti is np.inf:
-        if N is None:
-            num = K*np.array([Td, 1])
-            den = np.array([1])
-        else:
-            num = K*np.array([Td*(1+N), N])
-            den = np.array([Td, N])
-    else:
-        if N is None:
-            num = K*np.array([Ti*Td, Ti, 1])
-            den = np.array([Ti,0])
-        else:
-            num = K*np.array([Ti*Td*(1+N), Ti*N+Td, N])
-            den = np.convolve([Ti,0],[Td,N])
-
-    C = ct.tf(num, den)
-    return C
-
-def pidPol(G, D, N=None):
-    """
-    Projeta um controlador PID utilizando o método polinomial para uma função transferência G(s) da forma:
-                    a1 s + a0
-         G(s) = ------------------
-                 b2 s² + b1 s + b0
-    para b2 != 0.
-
-    Para tanto, um polinômio D(s) deve ser passado, sendo este da forma:
-        D(s) = s³ + d2 s² + d1 s + d0
-
-    Parâmetros
-    ----------
-    G : control.tf
-        Função transferência do sistema a ser controlado.
-    D : float
-        Polinômio desejado para o denominador.
-    N : int ou None
-        Filtro no derivativo, a fim de tornar o derivativo implementável. Se None, não haverá filtro.
-        Padrão é None.
-
-    Notas
-    -----
-    O filtro é implementado depois de se projetar o controlador, então sua presença pode gerar um comportamento indesejado e deve ser avaliado e alterado conforme os requisitos dados.
-    """
-
-    num, den = G.num[0][0], G.den[0][0]
-
-    assert len(num) <= 2 and len(den) == 3, '''
-    Formato de G(s) incorreto!
-    Certifique que ele seja da forma:
-    \t   a1 z + a0\n\t-----------------\n\tb2 z² + b1 z + b0'''
-    if len(num) == 2:
-        b1, b0 = num
-    else:
-        b1, b0 = 0, num[0]
-    a2, a1, a0 = den
-
-    d3, d2, d1, d0 = D
-    assert d3 == 1, '''
-    Formato de D(s) errado! Deve ser:
-    \t\t D(s) = s³ + d2 s² + d1 s + d0'''
-
-    E = np.array([[ 0, b1, b0-b1*d2],
-                  [b1, b0,   -b1*d1],
-                  [b0,  0,   -b1*d0]])
-
-    B = np.array([[d2-a1],
-                  [d1-a0],
-                     [d0]])
-
-    M = inv(E).dot(B)
-
-    b2, b1, b0 = M[0][0], M[1][0], M[2][0]
-
-    K, Td, Ti = b1, b0/b1, b1/b2
-    C = pid(K, Ti, Td, N=N)
-
-    return C, [K, Ti, Td, N]
-
-def discretePID(K, Ti, Td, Ts):
-    """
-    Gera o controlador PID discretizado com base nos parâmetros K, Ti, Td e Ts.
-
-    Parâmetros
-    ----------
-    K : float
-        Ganho proporcional do controlador.
-    Ti : float
-        Ganho da ação integral do controlador.
-    Td : float
-        Ganho da ação derivativa do controlador.
-    Ts : float
-        Taxa de amostragem do sistema discreto.
-
-    Retorna
-    -------
-    Cpid : control.tf
-        Função transferência do controlador PID discretizado com taxa de amostragem de Ts.
-    """
-
-    c2 = Ts/Ti + Td/Ts + 1
-    c1 = -2*Td/Ts - 1
-    c0 = Td/Ts
-
-    num = K*np.array([c2, c1, c0])
-    den = np.array([1, -1, 0])
-
-    Cpid = ct.tf(num, den, Ts)
-    return Cpid
-
-def PIDz(C, Ts):
-    """
-    Função usada para discretizar um controlador PID C(s) com uma taxa de amostragem Ts.
-
-    Parâmetros
-    ----------
-    C : control.tf
-        Controlador PID contínuo.
-    Ts : int, float
-        Taxa de amostragem da discretização.
-
-    Retorna
-    -------
-    Cz : control.tf
-        Controlador PID discretizado.
-    """
-    b0, b1, b2 = C.num[0][0]
-    K, Ti, Td = b1, b1/b2, b0/b1
-
-    Cz = discretePID(K, Ti, Td, Ts)
-    return Cz
-
-def PID_LGR(G, p, zPI=-0.5, Print=True, xlim=None):
-    """
-    Projeta um controlador PID pelo método LGR.
-
-    A função recebe o processo a ser controlado e o polo desejado do sistema. Opcionalmente é passado o zero da ação PI do controlador (deve ser próximo de 0). Então, é retornado o controlador PID projetado pelo método LGR.
-
-    Parâmetros
-    ----------
-    G : control.tf
-        Função transferência do sistema a ser controlado.
-    p : np.array
-        Polo dominante de malha fechada desejado
-    zPI : int, float
-        Zero da ação PI do controlador.
-        Deve ser posicionado próximo de 0.
-        Padrão é -0.5
-    Print : bool
-        Se True, será mostrado o LGR do sistema compensado (sem o ganho).
-        Padrão é True.
-    xlim : None, list, tuple .. de 2 valores
-        Limites do eixo real do LGR. Se for None, a função control.rlocus() decidirá os limites.
-        Padrão é None.
-
-    Retorna
-    -------
-    K : float
-        Ganho que leva o sistema compensado C(s)G(s) para o polo desejado considerando uma realimentação unitária.
-    Cpid : control.tf
-        Compensador PID projetado.
-
-    Nota
-    ----
-    O controlador final será dado por K Cpid(s).
-    """
-    zero, pole = ct.zero(G), ct.pole(G)
-
-    # Deficiência angular
-    ph = np.angle(p-zero) # Contribuição dos zeros
-    th = np.angle(p-pole) # Contribuição dos polos
-    be = np.pi + sum(ph) - sum(th)  # Deficiência angular
-
-    # Distância do zero do PD ao polo desejado
-    a = np.imag(p)/np.tan(-be)
-    zPD = np.real(p) - a
-
-    num = np.convolve([1, -zPI], [1, -zPD])
-    den = np.array([1,0])
-
-    Cpid = ct.tf(num, den)
-    _H = Cpid*G
-
-    K = 1/abs(ct.evalfr(_H, p))
-
-    if Print:
-        ct.rlocus(_H) if xlim is None else ct.rlocus(_H, xlim=xlim)
-        plt.scatter(np.real([p, p]), np.imag([p, -p]), c='r')
-
-        #H = ct.feedback(K*_H)
-        #zz, pp = ct.zero(H), ct.pole(H)
-        #plt.scatter(np.real(zz), np.imag(zz), c='k')
-        #plt.scatter(np.real(pp), np.imag(pp), c='k', marker='x')
-
-    return K, Cpid
 
 def simulaCzGs(G,
                C,
@@ -946,7 +898,6 @@ def simulaCzGs(G,
 
     return t, Y[0:-1], U
 
-
 def update_uk(C, ek, _u, _e):
     """
     Função auxiliar que implementa a equação a diferença do controlador e retorna o valor do sinal de controle u[k] considerando o controlador em série com o processo e a realimentação unitária.
@@ -974,7 +925,332 @@ def update_uk(C, ek, _u, _e):
     uk = (E-U)/a[0]
     return uk
 
+# Construir controlador PID
+def PID(K, Ti, Td, N=None):
+    """
+    Cria um controlador PID com base nos parâmetros K, Ti, Td. É possível utilizar um filtro N no derivativo.
+
+    A dedução foi feita adotando
+    * Sem filtro:
+              /       1         \
+        C = K | 1 + ---- + Td s |
+              \     Ti s        /
+
+    * Com filtro:
+              /       1       Td s    \
+        C = K | 1 + ---- + ---------- |
+              \     Ti s   Td s/N + 1 /
+
+    PID:
+    Sem o filtro:
+              (Ti Td s² + Ti s + 1)
+        C = K ---------------------
+                      Ti s
+
+    Com filtro:
+              (Ti Td (N + 1) s² + (Ti N + Td) s + N)
+        C = K --------------------------------------
+                         Ti s (Td s + N)
+
+    A variável pode ser s ou z.
+
+    Parâmetros
+    ----------
+    K : float
+        Ganho proporcional do controlador.
+    Ti : float ou np.inf
+        Ganho do integrador do controlador.
+    Td : float
+        Ganho do derivativo do controlador.
+    N : inteiro positivo
+        Filtro do derivativo, normalmente entre 10 e 100.
+        Padrão é None.
+    """
+    #assert K != 0 and Ti != 0 and Td != 0, 'Os parâmetros não podem ser todos nulos'
+    assert K != 0, 'O ganho do controlador não pode ser nulo!'
+    assert Ti != 0, 'O ganho do integrador não pode ser nulo'
+    if N is not None:
+        assert N > 0, 'Valor inválido para N!'
+
+    if Ti is np.inf:
+        if N is None:
+            num = K*np.array([Td, 1])
+            den = np.array([1])
+        else:
+            num = K*np.array([Td*(1+N), N])
+            den = np.array([Td, N])
+    else:
+        if N is None:
+            num = K*np.array([Ti*Td, Ti, 1])
+            den = np.array([Ti,0])
+        else:
+            num = K*np.array([Ti*Td*(1+N), Ti*N+Td, N])
+            den = np.convolve([Ti,0],[Td,N])
+
+    C = ct.tf(num, den)
+    return C
+
+def PIDz(K, Ti, Td, Ts):
+    """
+    Gera o controlador PID discretizado com base nos parâmetros K, Ti, Td e Ts.
+
+    Parâmetros
+    ----------
+    K : float
+        Ganho proporcional do controlador.
+    Ti : float
+        Ganho da ação integral do controlador.
+    Td : float
+        Ganho da ação derivativa do controlador.
+    Ts : float
+        Taxa de amostragem do sistema discreto.
+
+    Retorna
+    -------
+    Cpid : control.tf
+        Função transferência do controlador PID discretizado com taxa de amostragem de Ts.
+    """
+
+    c2 = Ts/Ti + Td/Ts + 1
+    c1 = -2*Td/Ts - 1
+    c0 = Td/Ts
+
+    num = K*np.array([c2, c1, c0])
+    den = np.array([1, -1, 0])
+
+    Cpid = ct.tf(num, den, Ts)
+    return Cpid
+
+def discretePID(C, Ts):
+    """
+    Função usada para discretizar um controlador PID C(s) com uma taxa de amostragem Ts.
+
+    Parâmetros
+    ----------
+    C : control.tf
+        Controlador PID contínuo.
+    Ts : int, float
+        Taxa de amostragem da discretização.
+
+    Retorna
+    -------
+    Cz : control.tf
+        Controlador PID discretizado.
+    """
+    b0, b1, b2 = C.num[0][0]
+    K, Ti, Td = b1, b1/b2, b0/b1
+
+    Cz = discretePID(K, Ti, Td, Ts)
+    return Cz
+
+# Projetar controlador PID
+def PID_Pol(G, D, N=None):
+    """
+    Projeta um controlador PID utilizando o método polinomial para uma função transferência G(s) da forma:
+
+                    a1 s + a0
+         G(s) = ------------------
+                 b2 s² + b1 s + b0
+    para b2 != 0.
+
+    Para tanto, um polinômio D(s) deve ser passado, sendo este da forma:
+        D(s) = s³ + d2 s² + d1 s + d0
+
+    Parâmetros
+    ----------
+    G : control.tf
+        Função transferência do sistema a ser controlado.
+    D : float
+        Polinômio desejado para o denominador.
+    N : int ou None
+        Filtro no derivativo, a fim de tornar o derivativo implementável. Se None, não haverá filtro.
+        Padrão é None.
+
+    Notas
+    -----
+    O filtro é implementado depois de se projetar o controlador, então sua presença pode gerar um comportamento indesejado e deve ser avaliado e alterado conforme os requisitos dados.
+    """
+
+    num, den = G.num[0][0], G.den[0][0]
+
+    assert len(num) <= 2 and len(den) == 3, '''
+    Formato de G(s) incorreto!
+    Certifique que ele seja da forma:
+    \t   a1 z + a0\n\t-----------------\n\tb2 z² + b1 z + b0'''
+    if len(num) == 2:
+        b1, b0 = num
+    else:
+        b1, b0 = 0, num[0]
+    a2, a1, a0 = den
+
+    d3, d2, d1, d0 = D
+    assert d3 == 1, '''
+    Formato de D(s) errado! Deve ser:
+    \t\t D(s) = s³ + d2 s² + d1 s + d0'''
+
+    E = np.array([[ 0, b1, b0-b1*d2],
+                  [b1, b0,   -b1*d1],
+                  [b0,  0,   -b1*d0]])
+
+    B = np.array([[d2-a1],
+                  [d1-a0],
+                     [d0]])
+
+    M = inv(E).dot(B)
+
+    b2, b1, b0 = M[0][0], M[1][0], M[2][0]
+
+    K, Td, Ti = b1, b0/b1, b1/b2
+    C = pid(K, Ti, Td, N=N)
+
+    return C, [K, Ti, Td, N]
+
+def PID_LGR(G, p, zPI=-0.5, Print=True, xlim=None):
+    """
+    Projeta um controlador PID pelo método LGR.
+
+    A função recebe o processo a ser controlado e o polo desejado do sistema. Opcionalmente é passado o zero da ação PI do controlador (deve ser próximo de 0). Então, é retornado o controlador PID projetado pelo método LGR.
+
+    Parâmetros
+    ----------
+    G : control.tf
+        Função transferência do sistema a ser controlado.
+    p : np.array
+        Polo dominante de malha fechada desejado
+    zPI : int, float
+        Zero da ação PI do controlador.
+        Deve ser posicionado próximo de 0.
+        Padrão é -0.5
+    Print : bool
+        Se True, será mostrado o LGR do sistema compensado (sem o ganho).
+        Padrão é True.
+    xlim : None, list, tuple .. de 2 valores
+        Limites do eixo real do LGR. Se for None, a função control.rlocus() decidirá os limites.
+        Padrão é None.
+
+    Retorna
+    -------
+    K : float
+        Ganho que leva o sistema compensado C(s)G(s) para o polo desejado considerando uma realimentação unitária.
+    Cpid : control.tf
+        Compensador PID projetado.
+
+    Nota
+    ----
+    O controlador final será dado por K Cpid(s).
+    """
+    zero, pole = ct.zero(G), ct.pole(G)
+
+    # Deficiência angular
+    ph = np.angle(p-zero) # Contribuição dos zeros
+    th = np.angle(p-pole) # Contribuição dos polos
+    be = np.pi + sum(ph) - sum(th)  # Deficiência angular
+
+    # Distância do zero do PD ao polo desejado
+    a = np.imag(p)/np.tan(-be)
+    zPD = np.real(p) - a
+
+    num = np.convolve([1, -zPI], [1, -zPD])
+    den = np.array([1,0])
+
+    Cpid = ct.tf(num, den)
+    _H = Cpid*G
+
+    K = 1/abs(ct.evalfr(_H, p))
+
+    if Print:
+        ct.rlocus(_H) if xlim is None else ct.rlocus(_H, xlim=xlim)
+        plt.scatter(np.real([p, p]), np.imag([p, -p]), c='r')
+
+        #H = ct.feedback(K*_H)
+        #zz, pp = ct.zero(H), ct.pole(H)
+        #plt.scatter(np.real(zz), np.imag(zz), c='k')
+        #plt.scatter(np.real(pp), np.imag(pp), c='k', marker='x')
+
+    return K, Cpid
+
+def sintoniaPID(param, met='ZN',C='PID', modo=None):
+    """
+    Sintoniza um controlador PID, PI ou P com base nos parâmetros do modelo identificado e no método pedido.
+
+    Parâmetros
+    ----------
+    param : tuple, list, array .. de 2 ou 3 valores
+        Caso seja ZN ou ITAE então ``K, T, L = param``,
+        Caso seja Kcr, ``Kcr, Pcr = param``
+    met : string
+        Método usado para a sintonia.
+        Se for ZN, será feita a sintonia usando os valores da tabela  descobertos por Ziegler-Nichols.
+        Se for ITAE, utilizará valores com base na minimização o ITAE.
+        Se for Kcr, utilizará o método de Ziegler-Nichols mas com a identificação dos ganhos limites do sistema.
+    C : string
+        Escolha da forma do PID.
+        Se for PID, PI ou P será projetado um controlador homônimo.
+        Se for OS, será projetado um controlador PID para 20% de OS.
+        Caso contrário, será projetado um controlador PID para 0% de OS.
+    Modo : string ou None
+        Modo do controlador para o método de minimização de ITAE. Se None, o modo será reação. Caso contrário, o modo servo.
+        Padrão é None.
+    """
+
+    met, C = met.upper(), C.upper()
+    # Tabela correspondente aos métodos de sintonia
+    table = [
+             [ #Método 'ZN'
+              [1.2, 2, 0.5],   # PID
+              [0.9, 1/0.3, 0], # PI
+              [1, np.inf, 0]], # P
+             [ #Método ITAE
+              # Reação
+              [1.357, -0.947, 0.842, -0.738, 0.842, -0.738], # PID
+              [0.859, -0.977, 0.674, -0.680, 0, 1],          # PI
+              # Servomotor
+              [0.965, -0.850, 0.796, -0.1465,0.308,  0.929], # PID
+              [6, -0.916, 1.030, -0.165, 0, 1]],             # PID
+             [ # Método Kcr
+              [0.6,0.5,0.125],  # PID
+              [0.45, 1/1.2, 0], # PI
+              [0.5, np.inf, 0], # P
+              [0.33,0.5,0.125], # OS
+              [0.2,0.5,1/3]]]   # Sen OS
+
+    met, C = met.upper(), C.upper()
+
+    # Valores de n e n correspondentes a table conforme as opções
+    m = 0 if met=='ZN' else 1 if met=='ITAE' else 2
+    n = 0 if C=='PID' else 1 if C=='PI' else 2 if C=='P' else 3 if C=='OS' else 4
+
+    if m==0: # ZN
+        K, T, L = param
+        Kp = table[m][n][0]*T/K/L
+        Ti = table[m][n][1]*L
+        Td = table[m][n][2]*L
+    elif m==1: # ITAE
+        K, T, L = param
+        if modo is None: # Reação
+            Ap,Bp,Ai,Bi,Ad,Bd = table[m][n]
+            Yp, Yi, Yd = Ap*(L/T)**Bp, Ai*(L/T)**Bi, Ad*(L/T)**Bd
+        else: # Servo
+            Ap,Bp,Ai,Bi,Ad,Bd = table[m][n+2]
+            Yp, Yi, Yd = Ap*(L/T)**Bp, Ai+Bi*(L/T), Ad*(L/T)**Bd
+
+        Kp = Yp/K
+        Ti = T/Yi
+        Td = Yd*T
+    else: # Kcr
+        Kcr, Pcr = param
+        Kp = table[m][n][0]*Kcr
+        Ti = table[m][n][1]*Pcr
+        Td = table[m][n][2]*Pcr
+
+     return Kp, Ti, Td
+
+# Funções em desenvolvimento
 def latexTable(t, y1, y2):
+    """
+    Função em desenvolvimento.
+    Gerar o texto em LaTeX dos critérios de desempenho de duas respostas.
+    """
     tss1, OS1, US1, tr1, *_ = stepinfo(t, y1)
     tss2, OS2, US2, tr2, *_ = stepinfo(t, y2)
 
@@ -1012,155 +1288,3 @@ def find_nearest(array, value):
     array = np.asarray(array)
     i = (np.abs(array - value)).argmin()
     return i
-
-def getKTL(t, y, A=1, Plot=True):
-    """
-    Função usada para determinar os parêmtros K, T e L para a sintonia de controladores PID pelo método Ziegler-Nichols. Os 3 parâmetros são determinados para a resposta a um degrau no sistema.
-
-    Parâmetros
-    ----------
-    t : np.array
-        Tempo da coleta dos dados. O vetor deve ser equispaçado.
-    y : np.array
-        Resposta do sistema para uma a entrada em degrau de amplitude A.
-    A : float, int
-        Amplitude do degrau aplicado.
-    Plot : bool
-        Se for True, plotará a reta identificada e os pontos de interesse.
-    """
-    dt = t[1]-t[0]
-    K = y[-1]/A - y[0]
-
-    #P = 0.63*K
-    dy = np.diff(y)
-    i  = np.argmax(dy)
-
-    a1 = max(dy)/dt
-    a0 = y[i+1] - a1*t[i+1]
-
-    # O atraso não pode ser negativo
-    t1 = -a0/a1 if -a0/a1 > 0 else 0
-    #B = find_nearest(y, P)
-    t2 = (y[-1] - a0)/a1
-
-    L = t1
-    T = t2-t1
-
-    if Plot:
-        plt.plot(t, a1*t+a0, linewidth=1)
-        plt.plot([t2, t2], [K*A, 0], 'k--', linewidth=1)
-        r = K*A*np.ones_like(y)
-        plt.plot(t, r, 'k--', linewidth=1)
-        plt.plot(t, y)
-
-
-        plt.scatter([t[i+1], t1, t2], [y[i+1], 0, K*A], c='#DC1C13')
-
-        plt.grid(linestyle='--')
-        plt.xlim(t[0], t[-1])
-        plt.ylim(min(y), 1.2*max(y))
-        plt.xlabel('tempo (s)')
-        plt.ylabel('Amplitude')
-
-    return K, T, L
-
-
-def sintoniaPID(K, T, L, Kcr=None,
-                metodo='reacao', controlador='PID', modo=None):
-    assert metodo in ['reacao', 'ITAE', 'ZN'], 'Escolha um método válido:\n\t reacao, ITAE ou ZN'
-
-    if metodo == 'ZN':
-        if controlador == 'P':
-            Kp = 0.5*Kcr
-            Ti = np.inf
-            Td = 0
-        elif controlador == 'PI':
-            Kp = 0.45*Kcr
-            Ti = Pcr/1.2
-            Td = 0
-        elif controlador == 'PID':
-            Kp = 0.6*Kcr
-            Ti = 0.5*Pcr
-            Td = 0.125*Pcr
-        elif controlador == 'comOvershoot':
-            Kp = 0.33*Kcr
-            Ti = 0.5*Pcr
-            Td = 0.125*Pcr
-        else:  # semOvershoot
-            Kp = 0.2*Kcr
-            Ti = 0.5*Pcr
-            Td = Pcr/3
-        return Kp, Ti, Td
-
-    elif metodo == 'reacao':
-        if controlador == 'P':
-            Kp = T/(K*L)
-            Ti = np.inf
-            Td = 0
-        elif controlador == 'PI':
-            Kp = 0.9*T/(K*L)
-            Ti = L/0.3
-            Td = 0
-        else:  # PID
-            Kp = 1.2*T/(K*L)
-            Ti = 2*L
-            Td = 0.5*L
-        return Kp, Ti, Td
-
-    else:  # ITAE
-        if modo == 'regulacao':
-            if controlador == 'PI':
-                Ap, Bp = 0.859, -0.977
-                Ai, Bi = 0.674, -0.680
-                Yp = Ap*(L/T)**Bp
-                Yi = Ai*(L/T)**Bi
-                Kp = Yp/K
-                Ti = T/Yi
-                Td = 0
-            else: # PID
-                Ap, Bp = 1.357, -0.947
-                Ai, Bi = 0.842, -0.738
-                Ad, Bd = 0.381,  0.995
-                Yp = Ap*(L/T)**Bp
-                Yi = Ai*(L/T)**Bi
-                Yd = Ad*(L/T)**Bd
-                Kp = Yp/K
-                Ti = T/Yi
-                Td = Yd*T
-            return Kp, Ti, Td
-
-        else:
-            if controlador == 'PI':
-                Ap, Bp = 0.586, -0.916
-                Ai, Bi = 1.030, -0.165
-                Yp = Ap*(L/T)**Bp
-                Yi = Ai + Bi*(L/T)
-                Kp = Yp/K
-                Ti = T/Yi
-                Td = 0
-            else: # PID
-                Ap, Bp = 0.965, -0.850
-                Ai, Bi = 0.796, -0.1465
-                Ad, Bd = 0.308,  0.929
-                Yp = Ap*(L/T)**Bp
-                Yi = Ai + Bi*(L/T)
-                Yd = Ad*(L/T)**Bd
-                Kp = Yp/K
-                Ti = T/Yi
-                Td = Yd*T
-            return Kp, Ti, Td
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
