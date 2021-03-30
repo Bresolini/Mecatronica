@@ -1040,7 +1040,7 @@ def discretePID(C, Ts):
     b0, b1, b2 = C.num[0][0]
     K, Ti, Td = b1, b1/b2, b0/b1
 
-    Cz = discretePID(K, Ti, Td, Ts)
+    Cz = PIDz(K, Ti, Td, Ts)
     return Cz
 
 # Projetar controlador PID
@@ -1243,7 +1243,7 @@ def sintoniaPID(param, met='ZN',C='PID', modo=None):
         Ti = table[m][n][1]*Pcr
         Td = table[m][n][2]*Pcr
 
-     return Kp, Ti, Td
+    return Kp, Ti, Td
 
 # Funções em desenvolvimento
 def latexTable(t, y1, y2):
@@ -1288,3 +1288,18 @@ def find_nearest(array, value):
     array = np.asarray(array)
     i = (np.abs(array - value)).argmin()
     return i
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

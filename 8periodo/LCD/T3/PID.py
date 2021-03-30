@@ -10,7 +10,7 @@ import numpy as np
 from numpy.linalg import inv
 import control as ct
 import matplotlib.pyplot as plt
-import ctrl
+import ctrl # Adicionar ctrl.py a pasta deste código
 
 plt.close('all')
 
@@ -20,8 +20,8 @@ Save = True
 ts = 0.09
 OS = 0.001
 Ts = 0.001
-n1  = 8000
-n2  = 150
+n  = 5000
+ulim = (-12,12)
 
 # Defina a funçao transf. do processo
 numG = np.array([0.3161])          # Numerador
@@ -32,9 +32,9 @@ G = ct.tf(numG, denG)
 
 # ABORDAGEM PID via LGR
 
-z, w, pd = ctrl.param(ts, OS)
-Kc, C1 = ctrl.PID_LGR(G, pd[0], Print=False)
-H1 = ct.feedback(Kc*C1*G)
+z, w, pd = ctrl.param(ts, OS) # Polo desejado
+Kc, C1 = ctrl.PID_LGR(G, pd[0], Print=False) # Projeto
+H1 = ct.feedback(Kc*C1*G) # malhe fechada
 
 if Show:
     ct.rlocus(G*C1, xlim=(-60, 1))
@@ -48,41 +48,37 @@ if Show:
         plt.savefig('Fig/rlocusCG.eps', format='eps',
                     dpi=3000, bbox_inches='tight')
 
-r1 = np.ones(n1)
-Cz1 = ctrl.PIDz(Kc*C1, Ts)
+r = np.ones(n) # Sinal de referência
+Cz1 = ctrl.discretePID(Kc*C1, Ts) # Controlador 1
 
-t1, y1, u1 = ctrl.simulaCzGs(G, Cz1, n1, r1, ulim=(-24,24))
+# SIMULAÇÂO C1
+t, y1, u1 = ctrl.simulaCzGs(G, Cz1, n, r, ulim=ulim)
 
-# ABORDAGEM PID empírica
+# SINTONIA PID
+# Obter K, T e L
 t_ = np.arange(0, 5+0.01, 0.01)
 t_, y_, _ = ct.forced_response(G, t_, 3*np.ones_like(t_))
-
 _K, _T, _L = ctrl.getKTL(t_, y_, A=3, Plot=False)
-tau = _L/(_T+_L)
-Kp, Ti, Td = 1.2*_T/_K/_L, 2*_L, 0.5*_L
 
-#Kp = 1.35*_T/_K/_L*(1+0.18*tau/(1-tau))
-#Ti = (2.5 - 2*tau)/(1 - 0.39*tau)*_L
-#Td = (0.37-0.37*tau)/(1-0.81*tau)*_L
+# Controlador 2: sintonia PID ITAE
+Kp, Ti, Td = ctrl.sintoniaPID((_K, _T, _L), met='ITAE', modo='servo')
+Cz2 = ctrl.PIDz(Kp, Ti, Td, Ts)
 
-n2=8000
-Ts2 = 0.001
+# SIMULAÇÂO C2
+t, y2, u2 = ctrl.simulaCzGs(G, Cz2, n, r, ulim=ulim, qnt=10)
 
-Kp, Ti, Td = ctrl.sintoniaPID(_K, _T, _L, metodo='ITAE')
-Cz2 = ctrl.discretePID(Kp, Ti, Td, Ts2)
+# Controlador 3: Sintonia PID Ziegler-Nichols
+Kp, Ti, Td = ctrl.sintoniaPID((_K, _T, _L))
+Cz3 = ctrl.PIDz(Kp, Ti, Td, Ts)
 
-r2 = np.ones(n2)
-t2, y2, u2 = ctrl.simulaCzGs(G, Cz2, n2, r2, ulim=(-24,24), qnt=10)
+# SIMULAÇÂO
+t, y3, u3 = ctrl.simulaCzGs(G, Cz3, n, r, ulim=ulim, qnt=10)
 
-Kp, Ti, Td = ctrl.sintoniaPID(_K, _T, _L)
-Cz3 = ctrl.discretePID(Kp, Ti, Td, Ts2)
-t3, y3, u3 = ctrl.simulaCzGs(G, Cz3, n2, r2, ulim=(-24,24), qnt=10)
+# PLOTAGEM
+ylab = ('$y_{LGR}(t)$','$y_{ITAE}(t)$','$y_{ZN}(t)$')
+ulab = ('$u_{LGR}(t)$','$u_{ITAE}(t)$','$u_{ZN}(t)$')
 
-
-#ctrl.PlotData(t1, y1, r1, u1, True)
-ctrl.PlotData(t2, y2, r2, u2, True)
-ctrl.PlotData(t3, y3, r2, u3, True)
-
+ctrl.PlotData(t, [y1,y2,y3], r, [u1,u2,u3], True, ylab, ulab)
 
 """
 plt.savefig('Fig/RespPID_LGR.eps',
