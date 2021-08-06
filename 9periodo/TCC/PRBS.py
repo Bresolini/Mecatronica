@@ -143,6 +143,8 @@ plt.ylabel('Saída')
 ry = FAC(ymap)
 plt.figure(2)
 plt.plot(np.hstack((-t[::-1],t)), np.hstack((ry[::-1],ry)),c='tab:cyan')
+plt.xlabel(r"$k/T_b$")
+plt.ylabel('$\hat{r}_y(k)$')
 plt.xticks([-2*63, -1*63, 0, 1*63, 2*63])
 plt.yticks([-1/len(ymap), 0.25, 0.5, 0.75, 1])
 plt.grid(linestyle='--')
@@ -158,4 +160,3 @@ print(f"\t       +V:\t +1",
       f"\tnum de -V:\t {nmin}",
       f"\tnum de +V:\t {nmax}",
       sep='\n')
-
