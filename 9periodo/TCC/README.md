@@ -1,6 +1,10 @@
 # Arquivos para o TCC
 Neste GitHub estarão arquivos usados no meu TCC, tais como códigos e dados.
 
+Autor: Bernardo Bresolini.
+
+Última edição: 06 de ago. 2021.
+
 ## PRBS
 Código para a implementação do sinal PRBS de sequência m.
 
