@@ -29,7 +29,7 @@ u = np.array([2.50, 2.50, 2.50, 2.50, 2.50, 2.23, 2.20, 2.20, 2.21, 2.20])
 # Formato dos polinômios, p = (ny, nu)
 p = (2,3)
 
-def ident_ARX(y, u, p):
+def MQ(y, u, n=(1,1), k0=None):
     """
 Estimador de modelo ARX pelo método dos mínimos quadrados pela pseudoinversa.
 
@@ -48,8 +48,11 @@ y : array_like
     Vetor com os valores medidos da saída.
 u : array_like
     Vetor com os valores medidos da entrada.
-p : tuplet, list .. de 2 valores
-    Ordem dos polinômios A(q) e B(q), sendo p = (ny, nu).
+n : tuplet, list .. de 2 valores
+    Ordem dos polinômios A(q) e B(q), sendo n = (ny, nu).
+k0 : int ou None
+    Ponto inicial para k. Caso seja None, é considerado como max(n)+1.
+    Padrão é None.
 
 Retorna
 -------
@@ -60,41 +63,36 @@ th : np.matrix
 res : np.matrix
     Matriz coluna com os resíduos obtidos de res = y(k) - psi@th
     """
+    # Caso não seja passado o ponto em que se deve começar
+    # ele iniciará pelo maior valor entre ny e nu
+    if k0 is None:
+        k0 = max(n)
+    else:
+        assert k0 >= max(n)-1, 'k0 deve ser maior que max(n)-1!'
 
-    # Tornando os vetores de cados em np.array
+    # Tornando os vetores de dados em np.array
     y, u = np.asarray(y), np.asarray(u)
 
-    # Valores de y(k) em vetor coluna
-    yk = np.matrix(y[max(p):]).T
+    # Transforma os sinais em um matrix-coluna
+    # devido a implementação realizada, esta deve ser a forma
+    y = y.reshape((max(y.shape),1))
+    u = u.reshape(y.shape)
 
-    # Variáveis auxiliares
-    ny, nu = p
+    yk = y[k0+1:]
+    uk = u[k0+1:]
 
-    # Agora iniciaremos o vetor `psi'
-    # Para isso, vamos usar um `for' em que a cada iteração `k' ele lê
-    # os valores: y(k-1), y(k-2), ...
-    #             u(k-1), u(k-2), ...
-    # e salva na matriz `psi'.
-    # Contudo na primeira iteração `k', fazemos com o `if'
-    # devido a como é implementado o acesso aos vetores em NumPy.
+    # Matriz psi na forma psi = [ y(k-1) y(k-2) .. u(k-1) u(k-2) .. ]
+    # Começando por y(k-1), y(k-2)
+    psi = y[k0:-1]
+    for i in range(1, n[0]):
+        psi = np.hstack((psi, y[k0-i:-i-1]))
 
-    if ny > nu:
-        psi = np.hstack((y[ny-1::-1], u[ny-1:ny-nu-1:-1]))
-    elif ny < nu:
-        psi = np.hstack((y[nu-1:nu-ny-1:-1], u[nu-1::-1]))
-    else:
-        psi = np.hstack((y[ny-1::-1], u[nu-1::-1]))
+    # Parte de i(k-1), u(k-2)
+    psi = np.hstack((psi, u[k0:-1]))
+    for i in range(1,n[1]):
+        psi = np.hstack((psi, u[k0-i:-i-1]))
 
-    # Para cada iteração `k', devemos  obter os valores:
-    # k - 1, k - 2, ... k - ny   (do vetor y).
-    # Logo estamos lendo o vetor no sentido inverso, por isso o `::-1'.
-    # Ainda começamos em k - 1 e terminamos em k - ny.
-    # Em Python isso equivale a terminar em k - ny - 1, já que o último digito não é lido.
-    for k in range(max(p)+1, len(y)):
-        aux = np.hstack((y[k-1:k-ny-1:-1], u[k-1:k-nu-1:-1]))
-        psi = np.vstack((psi, aux))
-
-    # Transforma `psi' em np.matrix
+    # Transforma em np.matrix
     psi = np.asmatrix(psi)
 
     # Resolvendo pela pseudoinversa
