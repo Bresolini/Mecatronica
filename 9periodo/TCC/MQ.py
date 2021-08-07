@@ -105,7 +105,7 @@ res : np.matrix
     return psi, th, res
 
 # Identificando os parâmetros th
-psi, th, res = ident_ARX(y, u, p)
+psi, th, res = MQ(y, u, p)
 
 print('Matriz ψ:', psi, sep='\n')
 print('')
