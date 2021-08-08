@@ -5,6 +5,9 @@ Autor: Bernardo Bresolini.
 
 Última edição: 06 de ago. 2021.
 
+## armax
+Reúne algumas funções feitas com o intuito de servir de biblioteca.
+
 ## PRBS
 Código para a implementação do sinal PRBS de sequência m.
 
